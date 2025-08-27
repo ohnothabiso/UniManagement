@@ -1,0 +1,134 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Core models based on requirements
+model students {
+  id              String   @id @default(uuid())
+  student_no      String   @unique
+  first_name      String
+  surname         String
+  room_no         String
+  email           String
+  phone           String?
+  soft_deleted    Boolean  @default(false)
+  soft_deleted_at DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  checkouts       checkouts[]
+}
+
+model items {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  total_units Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  item_units  item_units[]
+  checkouts   checkouts[]
+}
+
+/// Optional per-unit tracking
+model item_units {
+  id         String      @id @default(uuid())
+  item_id    String
+  serial_no  String?
+  status     ItemUnitStatus @default(available)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+
+  item       items       @relation(fields: [item_id], references: [id])
+  checkouts  checkouts[]
+
+  @@index([item_id])
+}
+
+model checkouts {
+  id                    String      @id @default(uuid())
+  student_id            String
+  item_id               String
+  item_unit_id          String?
+  quantity              Int         @default(1)
+  destination           String
+  taken_at              DateTime    @default(now())
+  expected_return_at    DateTime?
+  returned_at           DateTime?
+  taken_by_user_id      String
+  returned_by_user_id   String?
+  student_card_received Boolean     @default(false)
+  condition_on_return   String?
+  status                CheckoutStatus @default(Taken)
+  notes                 String?
+  created_at            DateTime    @default(now())
+  updated_at            DateTime    @updatedAt
+
+  student               students    @relation(fields: [student_id], references: [id])
+  item                  items       @relation(fields: [item_id], references: [id])
+  item_unit             item_units? @relation(fields: [item_unit_id], references: [id])
+
+  @@index([student_id])
+  @@index([item_id])
+  @@index([item_unit_id])
+}
+
+model users {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  display_name   String
+  role           UserRole
+  password_hash  String
+  mfa_enabled    Boolean  @default(false)
+  is_active      Boolean  @default(true)
+  last_login_at  DateTime?
+}
+
+model audits {
+  id            String   @id @default(uuid())
+  actor_user_id String
+  action        String
+  table_name    String
+  row_id        String
+  before_json   Json?
+  after_json    Json?
+  timestamp     DateTime @default(now())
+}
+
+model settings {
+  key   String @id
+  value Json
+}
+
+enum ItemUnitStatus {
+  available
+  loaned
+  missing
+  maintenance
+}
+
+enum CheckoutStatus {
+  Taken
+  Returned
+  Missing
+  Partial
+}
+
+enum UserRole {
+  admin
+  reception
+  auditor
+}
